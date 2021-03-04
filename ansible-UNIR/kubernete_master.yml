@@ -1,0 +1,101 @@
+---
+-
+  hosts: vm-master
+  become: true
+  tasks:
+    - name: Reset kubeadm
+      command:
+        cmd: kubeadm reset --force
+
+    - name: Enable firewalld service
+      systemd:
+       state: restarted
+       daemon_reload: yes
+       name: firewalld
+       enabled: yes
+
+    - name: Open ports
+      firewalld:
+        port: "{{item}}"
+        permanent: true
+        state: enabled
+      with_items:
+        - 6443/tcp
+        - 2379-2380/tcp
+        - 10250/tcp
+        - 10251/tcp
+        - 10252/tcp
+        - 10255/tcp
+        - 8285/tcp
+        - 8472/tcp
+    
+    - name: Reload firewalld
+      shell: firewall-cmd --reload
+
+    - name: 'Configurar imagenes pull kubeadm'
+      command:
+        cmd: kubeadm config images pull
+
+    - name: 'Permitiremos el acceso desde los workers'
+      firewalld:
+       permanent: true
+       state: enabled
+       rich_rule: "{{ item }}"
+      with_items:
+        - "rule family=ipv4 source address=10.0.1.10/32 accept"
+        - "rule family=ipv4 source address=10.0.1.11/32 accept" 
+
+    - name: Reload firewalld
+      shell: firewall-cmd --reload
+
+    - name: 'Permitimos el acceso de los contenedores a localhost'
+      firewalld:
+       permanent: true
+       zone: public
+       state: enabled
+       rich_rule: "rule family=ipv4 source address=172.17.0.0/16 accept"
+
+    - name: Reload firewalld
+      shell: firewall-cmd --reload
+
+    - name: 'Instalamos el plugin CNI (Container Network Interface) de kubernetes y definimos la red de los PODs:'
+      command:
+        cmd: kubeadm init --pod-network-cidr 192.169.0.0/16 
+
+    - name: Creates directory
+      file:
+        path: /root/.kube
+        state: directory
+
+    - name: "Copiando configuración /etc/kubernetes/admin.conf a /root/.kube/config"
+      copy:
+        remote_src: yes
+        src: /etc/kubernetes/admin.conf
+        dest: /root/.kube/config
+        owner: root
+        group: root
+
+    - name: "Instalando la SDN"
+      command:
+       cmd: kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+
+    - name: "Instalando la SDN para Azure"
+      command:
+       cmd: kubectl apply -f https://docs.projectcalico.org/manifests/canal.yaml
+
+    - name: "Instalamos Calico"
+      get_url:
+        url: https://docs.projectcalico.org/manifests/custom-resources.yaml            
+        dest: /home/adminUsername/ 
+
+  
+
+    - name: "Cambiamos el cidr del fichero custom-resources.yaml"
+      replace:
+        path: /home/adminUsername/custom-resources.yaml
+        regexp: '192.168.0.0'
+        replace: '192.169.0.0'
+
+    - name: "Aplicamos los cambios del fichero custom-resources.yaml"
+      command:
+        cmd: kubectl apply -f /home/adminUsername/custom-resources.yaml

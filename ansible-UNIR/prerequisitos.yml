@@ -1,0 +1,71 @@
+---
+-
+  hosts: all
+  tasks:
+    -
+      name: "Set timezone to Europe/Madrid"
+      timezone:
+        name: Europe/Madrid
+   
+    -
+      name: "Instalamos dnf"
+      dnf:
+        name: dnf
+        state: latest
+
+
+    -
+      name: "Instalamos dnf-plugins-core"
+      dnf:
+        name: dnf-plugins-core
+        state: latest
+    
+    -
+      name: "Desinstlaamos docker podman"
+      dnf:
+        name: podman
+        state: absent
+   
+    - 
+      name: "Instalamos chrony"
+      dnf:
+        name: chrony
+        state: latest
+    -
+    -
+      name: "Instalamos nfs-utils"
+      dnf:
+        name: nfs-utils
+        state: latest
+    -
+    -
+      name: "Instalamos nfs4-acl-tools"
+      dnf:
+        name: nfs4-acl-tools
+        state: latest
+    -
+    -
+      name: "Instalamos wget"
+      dnf:
+        name: wget
+        state: latest
+    -
+
+      name: "Iniciando servicio chrony"
+      service:
+        enabled: true
+        name: "{{ item }}"
+        state: started
+      with_items:
+        - chronyd
+        - nfs-utils
+    - 
+      name: "Enable ntp"
+      command: 
+        /usr/bin/timedatectl set-ntp true
+      become: yes
+    -
+      name: "Desactivar SELINUX"
+      selinux:
+        state: disabled
+        

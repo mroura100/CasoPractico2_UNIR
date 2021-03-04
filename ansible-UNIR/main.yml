@@ -1,0 +1,7 @@
+---
+- import_playbook: prerequisitos.yml
+- import_playbook: nfs_config.yml
+- import_playbook: config_master_workers.yml
+- import_playbook: kubernete_master.yml
+- import_playbook: kubernete_workers.yml
+- import_playbook: creauser_noadmin.yml

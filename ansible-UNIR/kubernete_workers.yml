@@ -1,0 +1,43 @@
+---
+  - hosts: vm-master
+    tasks:
+      - name: get join command
+        shell:  kubeadm token create --print-join-command
+        register: join_command_raw
+
+      - name: set join command
+        set_fact:
+          join_command: "{{ join_command_raw.stdout_lines[0] }}"  
+
+  - hosts: workers
+    tasks:
+      - name: Reset kubeadm
+        command:
+          cmd: kubeadm reset --force
+
+      - name: Enable firewalld service
+        systemd:
+         state: restarted
+         daemon_reload: yes
+         name: firewalld
+         enabled: yes
+
+      - name: Open ports
+        firewalld:
+          port: "{{item}}"
+          permanent: true
+          state: enabled
+        with_items:
+          - 10250/tcp
+          - 30000/tcp
+          - 32767/tcp
+          - 8285/tcp
+          - 8472/tcp
+
+      - name: Reload firewalld
+        shell: firewall-cmd --reload
+    
+      - name: join cluster
+        shell: "{{ hostvars['vm-master'].join_command }}"
+
+

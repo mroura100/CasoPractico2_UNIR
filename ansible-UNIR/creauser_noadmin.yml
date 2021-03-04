@@ -1,0 +1,49 @@
+---
+  - hosts: vm-master
+    tasks:
+      - name: Desplegando el ingress controller
+        command:
+          cmd: kubectl apply -f https://raw.githubusercontent.com/haproxytech/kubernetes-ingress/v1.5/deploy/haproxy-ingress.yaml
+
+
+      - name: "Creamos el grupo kubeadmin"
+        group:
+          name: kubeadmin
+          state: present
+
+      - name: "Creamos el usuario kubeadmin"
+        user:
+          name: kubeadmin
+          state: present
+          group: kubeadmin
+          password: "kubeadmin"
+          home: /home/kubeadmin
+          shell: /bin/bash
+
+      - name: Creates directory
+        file:
+          path: /home/kubeadmin/.kube
+          state: directory
+
+      - name: "Copiando configuración /etc/kubernetes/admin.conf a /root/.kube/config"
+        copy:
+          remote_src: yes
+          src: /etc/kubernetes/admin.conf
+          dest: /home/kubeadmin/.kube/config
+          owner: kubeadmin
+          group: kubeadmin
+
+
+      - name: creamos el fichero /etc/sudoers.d/kubeadmin
+        file:
+          path: /etc/sudoers.d/kubeadmin
+          state: touch
+          owner: root
+          group: root
+ 
+
+      - name: Damos permisos de sudo al user kubeadm
+        lineinfile:
+          path: /etc/sudoers.d/kubeadmin
+          line: 'ALL            ALL = (ALL) NOPASSWD: ALL'
+
